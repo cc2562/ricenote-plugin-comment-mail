@@ -1,0 +1,8 @@
+# 跨平台确定性：文本文件在仓库与工作区都使用 LF
+* text=auto eol=lf
+
+# 二进制资源不做行尾转换（当前仓库没有，留作约定）
+*.png binary
+*.jpg binary
+*.gif binary
+*.woff2 binary

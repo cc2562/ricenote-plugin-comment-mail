@@ -1,0 +1,226 @@
+/*
+ * 评论邮件通知 · 后台页样式。
+ *
+ * 只承担「宿主 Tailwind 白名单不方便表达」的少量结构样式（自检列表、只读参数表、
+ * 测试结果条），配色一律使用宿主设计令牌，因此与官方页面观感一致。
+ *
+ * 遵守后台视觉硬约束：不使用阴影、不使用毛玻璃，层级只用 1px 边框与背景色差表达。
+ */
+
+/* 自检列表 */
+.cm-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cm-list__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+}
+
+.cm-list__row + .cm-list__row {
+  border-top: 1px solid hsl(var(--border));
+}
+
+/* 只读参数表（两列以上的响应式网格） */
+.cm-dl {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.5rem 2rem;
+}
+
+@media (min-width: 768px) {
+  .cm-dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .cm-dl--stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.cm-dl dt {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.cm-dl dd {
+  margin-top: 2px;
+  font-size: 12px;
+  color: hsl(var(--foreground));
+  word-break: break-word;
+}
+
+.cm-dl--stats dd {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 测试发信结果条 */
+.cm-result {
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted) / 0.4);
+}
+
+.cm-result--ok {
+  border-color: hsl(var(--success));
+  background: hsl(var(--success) / 0.08);
+}
+
+.cm-result--error {
+  border-color: hsl(var(--destructive));
+  background: hsl(var(--destructive) / 0.08);
+}
+
+.cm-result__detail {
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: hsl(var(--destructive));
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* 记录行里的失败原因 */
+.cm-error {
+  margin-top: 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: hsl(var(--destructive));
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* 提示条（例如「已保存，待重启生效」） */
+.cm-banner {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--warning));
+  border-radius: var(--radius);
+  background: hsl(var(--warning) / 0.1);
+  font-size: 12px;
+  color: hsl(var(--foreground));
+}
+
+/* 已知限制清单 */
+.cm-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-left: 1rem;
+  list-style: disc;
+  font-size: 12px;
+  line-height: 1.7;
+  color: hsl(var(--muted-foreground));
+}
+
+/* ── 模板编辑器 ───────────────────────────────────────────────────────── */
+
+.cm-tpl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .cm-tpl {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.cm-tpl__editor,
+.cm-tpl__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.cm-tpl__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* 模板正文用原生 textarea：需要读取 selectionStart 才能「插入到光标处」 */
+.cm-editor {
+  width: 100%;
+  min-height: 260px;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.cm-editor:focus {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 1px;
+}
+
+/* 变量芯片：点一下插入到光标处 */
+.cm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.cm-chip {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--muted) / 0.5);
+  color: hsl(var(--foreground));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.cm-chip:hover {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--accent));
+}
+
+/* 预览：HTML 用沙箱 iframe，纯文本用 pre */
+.cm-preview-frame {
+  width: 100%;
+  height: 360px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.cm-preview-text {
+  max-height: 360px;
+  overflow: auto;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted) / 0.4);
+  color: hsl(var(--foreground));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

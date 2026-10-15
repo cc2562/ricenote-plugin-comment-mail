@@ -1,0 +1,18 @@
+# 依赖与构建缓存
+node_modules/
+*.tsbuildinfo
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.idea/
+.vscode/
+
+# ⚠️ dist/ 是**故意提交**的：本插件以 `workspace:^` 参与 ricenote 工作区，
+#     安装器识别到 workspace 协议后会跳过依赖安装与构建，直接使用仓库里的产物。
+#     因此请不要把 dist/ 加进忽略列表。

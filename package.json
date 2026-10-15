@@ -1,0 +1,59 @@
+{
+  "name": "@ccrice/plugin-comment-mail",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "RiceNote 评论邮件通知插件：订阅评论事件，用零依赖 SMTP 客户端异步发送新评论、回复与审核结果通知。",
+  "keywords": [
+    "ricenote",
+    "plugin",
+    "comment",
+    "email",
+    "smtp"
+  ],
+  "license": "MIT",
+  "author": "ccrice",
+  "homepage": "https://github.com/cc2562/ricenote-plugin-comment-mail",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cc2562/ricenote-plugin-comment-mail.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cc2562/ricenote-plugin-comment-mail/issues"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "admin",
+    "manifest.json",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@ricenote/plugin-sdk": "^0.8.0",
+    "@ricenote/shared": "^0.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@ricenote/plugin-sdk": {
+      "optional": true
+    },
+    "@ricenote/shared": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ricenote/plugin-sdk": "workspace:^",
+    "@ricenote/shared": "workspace:^",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

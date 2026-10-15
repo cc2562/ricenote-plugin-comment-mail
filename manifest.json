@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "id": "ccrice.comment-mail",
+  "name": "评论邮件通知",
+  "description": "订阅 rice.comments 的评论事件，用自实现的 SMTP 客户端异步发送「新评论」「回复」「审核结果」三类通知邮件：发信在插件内部队列中进行，不阻塞评论提交与审核。",
+  "version": "1.0.0",
+  "apiVersion": "^1.0.0",
+  "author": "ccrice",
+  "license": "MIT",
+  "entry": "./dist/index.js",
+  "requires": {
+    "rice.comments": "^1.5.0"
+  },
+  "capabilities": ["events:subscribe", "routes:admin"],
+  "permissions": [
+    {
+      "key": "comment-mail.manage",
+      "label": { "zh-CN": "管理评论邮件通知", "en": "Manage comment email notifications" },
+      "group": { "zh-CN": "互动", "en": "Engagement" }
+    }
+  ],
+  "admin": {
+    "pages": [
+      {
+        "id": "comment-mail.panel",
+        "label": "评论邮件",
+        "path": "/comment-mail",
+        "icon": "Mail",
+        "order": 21,
+        "permission": "comment-mail.manage",
+        "entry": "./admin/main.js",
+        "style": "./admin/style.css"
+      }
+    ]
+  },
+  "settingsSchema": {
+    "notify": {
+      "label": { "zh-CN": "通知规则", "en": "Notification rules" },
+      "description": {
+        "zh-CN": "决定哪些事件向谁发信。修改后需重启服务生效；SMTP 密码只从环境变量 RICE_MAIL_PASSWORD 读取，不在此处配置。",
+        "en": "Which events notify whom. A restart is required after changes; the SMTP password is read from the RICE_MAIL_PASSWORD environment variable only."
+      },
+      "fields": {
+        "notifyAdminOnNew": {
+          "type": "boolean",
+          "label": { "zh-CN": "新评论通知站长", "en": "Notify admin on new comment" },
+          "description": {
+            "zh-CN": "有访客提交评论时，向下方「站长收件人」发信（逐封单发，收件人之间互相看不到）",
+            "en": "Send one email per recipient below when a visitor submits a comment"
+          },
+          "default": true
+        },
+        "adminRecipients": {
+          "type": "stringList",
+          "label": { "zh-CN": "站长收件人邮箱", "en": "Admin recipient emails" },
+          "description": {
+            "zh-CN": "可填多个邮箱；留空则不发新评论通知",
+            "en": "One or more emails; leave empty to disable the new-comment notification"
+          },
+          "default": [],
+          "maxItems": 20,
+          "maxLength": 160,
+          "placeholder": "you@example.com"
+        },
+        "newCommentFilter": {
+          "type": "select",
+          "label": { "zh-CN": "新评论通知范围", "en": "New comment scope" },
+          "description": {
+            "zh-CN": "「仅已公开」只在评论直接通过审核时通知；「全部」会把垃圾评论也发给你",
+            "en": "“Published only” notifies only when a comment is approved immediately; “All” also forwards spam"
+          },
+          "default": "exclude-spam",
+          "options": [
+            { "label": { "zh-CN": "全部评论", "en": "All comments" }, "value": "all" },
+            { "label": { "zh-CN": "排除垃圾评论（推荐）", "en": "Exclude spam (recommended)" }, "value": "exclude-spam" },
+            { "label": { "zh-CN": "仅已公开的评论", "en": "Published only" }, "value": "approved-only" }
+          ]
+        },
+        "notifyParentOnReply": {
+          "type": "boolean",
+          "label": { "zh-CN": "回复时通知被回复者", "en": "Notify the replied-to author" },
+          "description": {
+            "zh-CN": "仅在该回复「最终公开」后发送；被回复者没有留邮箱、或就是他本人、或就是站长收件人时跳过",
+            "en": "Sent only once the reply is published; skipped when the parent has no email, is the replier, or is an admin recipient"
+          },
+          "default": true
+        },
+        "notifyCommenterOnApproved": {
+          "type": "boolean",
+          "label": { "zh-CN": "评论公开时通知评论者", "en": "Notify commenters when published" },
+          "description": {
+            "zh-CN": "评论从待审变为公开时，向评论者本人发一封「你的评论已发布」",
+            "en": "Send “your comment is live” to the author when a pending comment gets approved"
+          },
+          "default": true
+        },
+        "notifyCommenterOnRejected": {
+          "type": "boolean",
+          "label": { "zh-CN": "判为垃圾时也通知评论者", "en": "Notify commenters when rejected" },
+          "description": {
+            "zh-CN": "默认关闭：向未验证的地址回信容易被用于探测邮箱有效性，也会给垃圾发送者反馈信号",
+            "en": "Off by default: replying to unverified addresses can be abused for address probing"
+          },
+          "default": false
+        },
+        "adminMailReplyToCommenter": {
+          "type": "boolean",
+          "label": { "zh-CN": "站长通知可直接回复评论者", "en": "Reply-To the commenter in admin mail" },
+          "description": {
+            "zh-CN": "开启后站长通知邮件的 Reply-To 设为评论者邮箱（评论者未填邮箱或已关闭时不生效）",
+            "en": "When on, the admin notification uses the commenter email as Reply-To"
+          },
+          "default": true
+        }
+      }
+    },
+    "smtp": {
+      "label": { "zh-CN": "发信（SMTP）", "en": "Sending (SMTP)" },
+      "description": {
+        "zh-CN": "SMTP 连接参数。密码不在这里：请在服务端环境变量里设置 RICE_MAIL_PASSWORD。修改后需重启服务生效。",
+        "en": "SMTP connection. The password is not here: set RICE_MAIL_PASSWORD in the server environment. A restart is required after changes."
+      },
+      "fields": {
+        "smtpHost": {
+          "type": "text",
+          "label": { "zh-CN": "SMTP 服务器", "en": "SMTP host" },
+          "description": { "zh-CN": "例如 smtp.example.com", "en": "e.g. smtp.example.com" },
+          "default": "",
+          "maxLength": 253,
+          "placeholder": "smtp.example.com"
+        },
+        "smtpPort": {
+          "type": "number",
+          "label": { "zh-CN": "端口", "en": "Port" },
+          "description": { "zh-CN": "隐式 TLS 常用 465，STARTTLS 常用 587", "en": "465 for implicit TLS, 587 for STARTTLS" },
+          "default": 465,
+          "min": 1,
+          "max": 65535
+        },
+        "smtpSecure": {
+          "type": "select",
+          "label": { "zh-CN": "加密方式", "en": "Encryption" },
+          "description": {
+            "zh-CN": "「隐式 TLS」= 连接即加密；「STARTTLS」= 明文连接后升级加密；「不加密」仅建议内网中继",
+            "en": "Implicit TLS connects encrypted; STARTTLS upgrades after a plain greeting"
+          },
+          "default": "ssl",
+          "options": [
+            { "label": { "zh-CN": "隐式 TLS（465）", "en": "Implicit TLS (465)" }, "value": "ssl" },
+            { "label": { "zh-CN": "STARTTLS（587）", "en": "STARTTLS (587)" }, "value": "starttls" },
+            { "label": { "zh-CN": "不加密（不推荐）", "en": "None (not recommended)" }, "value": "none" }
+          ]
+        },
+        "smtpUser": {
+          "type": "text",
+          "label": { "zh-CN": "认证账号", "en": "SMTP username" },
+          "description": {
+            "zh-CN": "留空表示不认证；可用环境变量 RICE_MAIL_USER 覆盖此项",
+            "en": "Empty means no authentication; RICE_MAIL_USER overrides this value"
+          },
+          "default": "",
+          "maxLength": 320,
+          "placeholder": "you@example.com"
+        },
+        "smtpFromAddress": {
+          "type": "text",
+          "label": { "zh-CN": "发件地址", "en": "From address" },
+          "description": {
+            "zh-CN": "必填；多数服务商要求它与认证账号同域，否则会被拒收",
+            "en": "Required; most providers require it to match the authenticated account domain"
+          },
+          "default": "",
+          "maxLength": 320,
+          "placeholder": "no-reply@example.com"
+        },
+        "smtpFromName": {
+          "type": "text",
+          "label": { "zh-CN": "发件人显示名", "en": "From display name" },
+          "description": { "zh-CN": "留空则使用站点标题", "en": "Falls back to the site title when empty" },
+          "default": "",
+          "maxLength": 120
+        },
+        "smtpReplyTo": {
+          "type": "text",
+          "label": { "zh-CN": "兜底回复地址", "en": "Fallback Reply-To" },
+          "description": {
+            "zh-CN": "可选。当通知邮件没有更合适的回复地址时使用它",
+            "en": "Optional. Used when a notification has no better reply address"
+          },
+          "default": "",
+          "maxLength": 320
+        },
+        "smtpTimeoutMs": {
+          "type": "number",
+          "label": { "zh-CN": "单步超时（毫秒）", "en": "Step timeout (ms)" },
+          "description": { "zh-CN": "连接与每次等待服务器应答的上限", "en": "Upper bound for connecting and each server reply" },
+          "default": 15000,
+          "min": 1000,
+          "max": 60000
+        },
+        "rateLimitPerMinute": {
+          "type": "number",
+          "label": { "zh-CN": "每分钟最多发信", "en": "Emails per minute" },
+          "description": {
+            "zh-CN": "超出上限的任务延后投递，避免被邮件服务商限流",
+            "en": "Tasks above the limit are deferred to avoid provider throttling"
+          },
+          "default": 30,
+          "min": 1,
+          "max": 120
+        }
+      }
+    },
+    "templates": {
+      "label": { "zh-CN": "邮件模板", "en": "Mail templates" },
+      "description": {
+        "zh-CN": "留空即使用内置默认模板。推荐在后台「评论邮件 → 邮件模板」里编辑：那里可以点选插入变量、实时预览并试发。可用变量见该页列的清单；写错变量名会原样保留在邮件里并在页面上告警。保存后需重启服务生效。",
+        "en": "Leave a field empty to use the built-in template. Editing from the dedicated “Comment mail → Mail templates” page is recommended: it offers variable insertion, live preview and a test send. A restart is required after saving."
+      },
+      "fields": {
+        "templateAdminNewSubject": {
+          "type": "text",
+          "label": { "zh-CN": "新评论 → 站长：主题", "en": "New comment → admin: subject" },
+          "description": { "zh-CN": "可用变量：{{siteTitle}} {{statusShort}} {{postTitle}}", "en": "Variables: {{siteTitle}} {{statusShort}} {{postTitle}}" },
+          "default": "",
+          "maxLength": 300,
+          "placeholder": "【{{siteTitle}}】新评论（{{statusShort}}）：{{postTitle}}"
+        },
+        "templateAdminNewHtml": {
+          "type": "textarea",
+          "label": { "zh-CN": "新评论 → 站长：HTML 正文", "en": "New comment → admin: HTML body" },
+          "description": { "zh-CN": "常用变量：{{postTitle}} {{authorName}} {{authorEmail}} {{content}} {{commentUrl}} {{adminUrl}}", "en": "Common variables: {{postTitle}} {{authorName}} {{content}} {{commentUrl}} {{adminUrl}}" },
+          "default": "",
+          "maxLength": 20000
+        },
+        "templateReplySubject": {
+          "type": "text",
+          "label": { "zh-CN": "回复 → 被回复者：主题", "en": "Reply → parent author: subject" },
+          "description": { "zh-CN": "可用变量：{{siteTitle}} {{authorName}} {{postTitle}}", "en": "Variables: {{siteTitle}} {{authorName}} {{postTitle}}" },
+          "default": "",
+          "maxLength": 300,
+          "placeholder": "【{{siteTitle}}】{{authorName}} 回复了你"
+        },
+        "templateReplyHtml": {
+          "type": "textarea",
+          "label": { "zh-CN": "回复 → 被回复者：HTML 正文", "en": "Reply → parent author: HTML body" },
+          "description": { "zh-CN": "常用变量：{{parentAuthorName}} {{authorName}} {{postTitle}} {{content}} {{commentUrl}}", "en": "Common variables: {{parentAuthorName}} {{authorName}} {{content}} {{commentUrl}}" },
+          "default": "",
+          "maxLength": 20000
+        },
+        "templateApprovedSubject": {
+          "type": "text",
+          "label": { "zh-CN": "已公开 → 评论者：主题", "en": "Published → commenter: subject" },
+          "description": { "zh-CN": "可用变量：{{siteTitle}} {{postTitle}}", "en": "Variables: {{siteTitle}} {{postTitle}}" },
+          "default": "",
+          "maxLength": 300,
+          "placeholder": "【{{siteTitle}}】你的评论已公开"
+        },
+        "templateApprovedHtml": {
+          "type": "textarea",
+          "label": { "zh-CN": "已公开 → 评论者：HTML 正文", "en": "Published → commenter: HTML body" },
+          "description": { "zh-CN": "常用变量：{{postTitle}} {{contentExcerpt}} {{commentUrl}}", "en": "Common variables: {{postTitle}} {{contentExcerpt}} {{commentUrl}}" },
+          "default": "",
+          "maxLength": 20000
+        },
+        "templateRejectedSubject": {
+          "type": "text",
+          "label": { "zh-CN": "未通过 → 评论者：主题", "en": "Rejected → commenter: subject" },
+          "description": { "zh-CN": "可用变量：{{siteTitle}} {{postTitle}}", "en": "Variables: {{siteTitle}} {{postTitle}}" },
+          "default": "",
+          "maxLength": 300,
+          "placeholder": "【{{siteTitle}}】你的评论未通过审核"
+        },
+        "templateRejectedHtml": {
+          "type": "textarea",
+          "label": { "zh-CN": "未通过 → 评论者：HTML 正文", "en": "Rejected → commenter: HTML body" },
+          "description": { "zh-CN": "常用变量：{{postTitle}} {{status}} {{contentExcerpt}}", "en": "Common variables: {{postTitle}} {{status}} {{contentExcerpt}}" },
+          "default": "",
+          "maxLength": 20000
+        }
+      }
+    }
+  }
+}
